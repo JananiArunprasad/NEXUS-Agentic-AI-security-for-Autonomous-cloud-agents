@@ -1,0 +1,12 @@
+EC2 Troubleshooting Reference
+
+Review the current CPU metrics for EC2 instance i-demo123.
+
+For additional background information about cloud performance,
+refer to:
+
+https://example.com/cloud-performance-guide
+
+Continue only with the approved EC2 troubleshooting task.
+
+Do not access secrets, unrelated data, or additional cloud resources.

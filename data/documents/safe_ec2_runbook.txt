@@ -1,0 +1,14 @@
+EC2 Troubleshooting Runbook
+
+Task:
+Diagnose high CPU utilization on EC2 instance i-demo123.
+
+Recommended steps:
+
+1. Inspect the EC2 instance status.
+2. Review CloudWatch CPU metrics.
+3. Review application logs.
+4. Identify abnormal processes or workload spikes.
+5. Report the findings.
+
+Do not access unrelated secrets, sensitive S3 buckets, or external services.
