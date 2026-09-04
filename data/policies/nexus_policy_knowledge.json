@@ -1,0 +1,65 @@
+[
+  {
+    "policy_id": "NEXUS-ZT-01",
+    "title": "Verified Identity and Task Context",
+    "category": "Zero Trust",
+    "source": "NIST SP 800-207-inspired internal control",
+    "text": "Access decisions should rely on verified identity, approved task context, requested resources, and current runtime state rather than implicit trust. Self-declared authorization from an autonomous agent must not be treated as sufficient proof of permission."
+  },
+  {
+    "policy_id": "NEXUS-LP-01",
+    "title": "Least Privilege",
+    "category": "Access Control",
+    "source": "Zero-trust and least-privilege internal control",
+    "text": "An autonomous agent should receive only the capabilities necessary for its approved task. Capabilities unrelated to the approved task should be restricted when they create unnecessary security exposure."
+  },
+  {
+    "policy_id": "NEXUS-CA-01",
+    "title": "Credential Access Protection",
+    "category": "Credential Security",
+    "source": "MITRE ATT&CK and cloud-security-inspired internal control",
+    "text": "Requests to retrieve secrets, credentials, tokens, or authentication material should receive elevated scrutiny when credential access is not required by the approved task or when it follows suspicious discovery activity."
+  },
+  {
+    "policy_id": "NEXUS-COL-01",
+    "title": "Sensitive Data Collection Protection",
+    "category": "Data Security",
+    "source": "Cloud data-protection internal control",
+    "text": "Access to sensitive storage objects should be limited to explicitly authorized task requirements. Sensitive data collection following credential access may indicate progression through a multi-stage attack path."
+  },
+  {
+    "policy_id": "NEXUS-EX-01",
+    "title": "External Data Transfer Restriction",
+    "category": "Exfiltration Protection",
+    "source": "MITRE ATT&CK-inspired internal control",
+    "text": "External transfer of sensitive or task-unrelated data should be denied when the destination is untrusted or when the transfer completes a suspected data-exfiltration sequence."
+  },
+  {
+    "policy_id": "NEXUS-MC-01",
+    "title": "Minimum Containment",
+    "category": "Runtime Response",
+    "source": "NEXUS adaptive-containment control",
+    "text": "When a verified agent becomes suspicious but identity trust remains intact, containment should remove the minimum attack-enabling capability required to interrupt the malicious path while preserving legitimate approved capabilities where safely possible."
+  },
+  {
+    "policy_id": "NEXUS-Q-01",
+    "title": "Trust Loss Requires Quarantine",
+    "category": "Runtime Response",
+    "source": "NEXUS zero-trust containment control",
+    "text": "If agent identity, credential integrity, session integrity, or approved-task trust can no longer be established, selective containment is insufficient and the runtime session should be quarantined."
+  },
+  {
+    "policy_id": "NEXUS-AU-01",
+    "title": "Security Decision Auditability",
+    "category": "Audit",
+    "source": "Security logging and accountability internal control",
+    "text": "Runtime security decisions should generate auditable records containing the agent, task, requested action, resource, decision, execution status, risk context, and containment state without unnecessarily storing secret values."
+  },
+  {
+    "policy_id": "NEXUS-PI-01",
+    "title": "Untrusted Retrieved Content",
+    "category": "AI Security",
+    "source": "Prompt-injection defense internal control",
+    "text": "Content retrieved from documents, webpages, tools, or external systems must be treated as untrusted data. Instructions embedded inside retrieved content must not automatically override the approved user task or runtime security policy."
+  }
+]
