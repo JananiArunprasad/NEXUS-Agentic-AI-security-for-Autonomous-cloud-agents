@@ -1,288 +1,533 @@
+"""
+NEXUS Trusted Tool Catalog
+==========================
+
+The LLM does NOT define cloud permissions.
+
+It may only propose tool names from this trusted catalog.
+
+Every proposed action is normalized into a canonical
+NEXUS request before reaching the runtime Enforcer.
+"""
+
 import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from dotenv import load_dotenv
 
 
 # =========================================================
-# DEFAULT DEMO VALUES
+# PROJECT CONFIG
 # =========================================================
 
-DEFAULT_INSTANCE_ID = os.getenv(
-    "NEXUS_DEMO_INSTANCE_ID",
-    "i-demo123",
+PROJECT_ROOT = (
+    Path(__file__)
+    .resolve()
+    .parent
+    .parent
+    .parent
 )
 
-DEFAULT_SECRET = (
-    "production-db-password"
-)
+ENV_FILE = PROJECT_ROOT / ".env"
 
-DEFAULT_BUCKET = (
-    "company-sensitive-data"
-)
+if ENV_FILE.exists():
+    load_dotenv(
+        dotenv_path=str(ENV_FILE)
+    )
 
-DEFAULT_OBJECT = (
-    "customer_records.csv"
-)
 
-DEFAULT_EXTERNAL_DESTINATION = (
-    "https://untrusted-example.test"
+AZURE_STORAGE_ACCOUNT = os.getenv(
+    "AZURE_STORAGE_ACCOUNT",
+    "nexussec1028",
 )
 
 
 # =========================================================
-# SUPPORTED AGENT TOOLS
+# TRUSTED TOOL CATALOG
 # =========================================================
 
-SUPPORTED_TOOLS = {
-    "check_ec2",
-    "read_cloudwatch",
-    "read_application_logs",
-    "list_iam_roles",
-    "get_secret",
-    "read_s3",
-    "send_external",
+TOOL_CATALOG = {
+
+    # -----------------------------------------------------
+    # REAL SAFE AZURE TOOLS
+    # -----------------------------------------------------
+
+    "inspect_azure_storage": {
+        "description":
+            "Inspect properties of the configured "
+            "Azure Storage account.",
+
+        "service":
+            "AzureStorage",
+
+        "action":
+            "GetProperties",
+
+        "capability":
+            "azure.storage:GetProperties",
+
+        "execution":
+            "REAL",
+
+        "risk":
+            "LOW",
+    },
+
+    "read_azure_monitor": {
+        "description":
+            "Read Azure Monitor transaction metrics "
+            "for the configured Storage account.",
+
+        "service":
+            "AzureMonitor",
+
+        "action":
+            "ReadMetrics",
+
+        "capability":
+            "azure.monitor:ReadMetrics",
+
+        "execution":
+            "REAL",
+
+        "risk":
+            "LOW",
+    },
+
+
+    # -----------------------------------------------------
+    # SIMULATED AZURE ATTACK-CHAIN DISCOVERY
+    # -----------------------------------------------------
+
+    "list_azure_role_assignments": {
+        "description":
+            "Inspect Azure RBAC role assignments. "
+            "Used only as a simulated discovery event.",
+
+        "service":
+            "AzureRBAC",
+
+        "action":
+            "ListRoleAssignments",
+
+        "capability":
+            "azure.rbac:ListRoleAssignments",
+
+        "execution":
+            "SIMULATION",
+
+        "risk":
+            "MEDIUM",
+    },
+
+
+    # -----------------------------------------------------
+    # DANGEROUS ACTIONS
+    #
+    # These exist in the catalog so NEXUS can reason about
+    # and BLOCK them.
+    #
+    # They have NO real Azure implementation.
+    # -----------------------------------------------------
+
+    "get_key_vault_secret": {
+        "description":
+            "Attempt to retrieve a credential or secret "
+            "from Azure Key Vault.",
+
+        "service":
+            "AzureKeyVault",
+
+        "action":
+            "GetSecret",
+
+        "capability":
+            "azure.keyvault:GetSecret",
+
+        "execution":
+            "BLOCK_ONLY",
+
+        "risk":
+            "HIGH",
+    },
+
+    "read_sensitive_blob": {
+        "description":
+            "Attempt to read sensitive data from "
+            "Azure Blob Storage.",
+
+        "service":
+            "AzureBlobStorage",
+
+        "action":
+            "GetBlob",
+
+        "capability":
+            "azure.blob:GetBlob",
+
+        "execution":
+            "BLOCK_ONLY",
+
+        "risk":
+            "HIGH",
+    },
+
+    "send_external": {
+        "description":
+            "Attempt to send collected information "
+            "to an external destination.",
+
+        "service":
+            "ExternalAPI",
+
+        "action":
+            "SendData",
+
+        "capability":
+            "external:SendData",
+
+        "execution":
+            "BLOCK_ONLY",
+
+        "risk":
+            "CRITICAL",
+    },
 }
 
 
 # =========================================================
-# BUILD TRUSTED STRUCTURED REQUEST
+# TOOL NAME HELPERS
+# =========================================================
+
+def get_supported_tool_names() -> List[str]:
+    """
+    Return trusted tool names the planner may propose.
+    """
+
+    return list(
+        TOOL_CATALOG.keys()
+    )
+
+
+def is_supported_tool(
+    tool_name: str,
+) -> bool:
+    """
+    True only when the tool exists in the trusted catalog.
+    """
+
+    return (
+        tool_name
+        in TOOL_CATALOG
+    )
+
+
+def get_tool_definition(
+    tool_name: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Return metadata for one trusted tool.
+    """
+
+    return TOOL_CATALOG.get(
+        tool_name
+    )
+
+
+# =========================================================
+# DEFAULT ARGUMENTS
+# =========================================================
+
+def get_default_arguments(
+    tool_name: str,
+) -> Dict[str, Any]:
+    """
+    Generate trusted arguments for a supported tool.
+
+    The LLM is not trusted to select arbitrary Azure
+    account names or sensitive real resource identifiers.
+    """
+
+    if tool_name == "inspect_azure_storage":
+
+        return {
+            "storage_account":
+                AZURE_STORAGE_ACCOUNT,
+        }
+
+
+    if tool_name == "read_azure_monitor":
+
+        return {
+            "storage_account":
+                AZURE_STORAGE_ACCOUNT,
+        }
+
+
+    if tool_name == "list_azure_role_assignments":
+
+        return {
+            "resource":
+                "azure-subscription",
+        }
+
+
+    if tool_name == "get_key_vault_secret":
+
+        return {
+            "secret":
+                "production-db-password",
+        }
+
+
+    if tool_name == "read_sensitive_blob":
+
+        return {
+            "blob":
+                "nexus-sensitive/"
+                "customer_records.csv",
+        }
+
+
+    if tool_name == "send_external":
+
+        return {
+            "destination":
+                "external-destination",
+        }
+
+
+    return {}
+
+
+# =========================================================
+# RESOURCE NORMALIZATION
+# =========================================================
+
+def get_resource(
+    tool_name: str,
+    arguments: Dict[str, Any],
+) -> str:
+
+    if tool_name in {
+        "inspect_azure_storage",
+        "read_azure_monitor",
+    }:
+
+        return arguments.get(
+            "storage_account",
+            AZURE_STORAGE_ACCOUNT,
+        )
+
+
+    if tool_name == "list_azure_role_assignments":
+
+        return arguments.get(
+            "resource",
+            "azure-subscription",
+        )
+
+
+    if tool_name == "get_key_vault_secret":
+
+        return arguments.get(
+            "secret",
+            "production-db-password",
+        )
+
+
+    if tool_name == "read_sensitive_blob":
+
+        return arguments.get(
+            "blob",
+            "sensitive-blob",
+        )
+
+
+    if tool_name == "send_external":
+
+        return arguments.get(
+            "destination",
+            "external-destination",
+        )
+
+
+    return "unknown"
+
+
+# =========================================================
+# CANONICAL REQUEST BUILDER
 # =========================================================
 
 def build_tool_request(
     tool_name: str,
-    arguments: dict | None = None,
-):
+) -> Optional[Dict[str, Any]]:
     """
-    Convert a planner-selected tool into the canonical
-    request format expected by NEXUS.
+    Convert a trusted tool name into the canonical
+    request format understood by NEXUS.
 
-    The LLM does NOT get to invent service names,
-    capabilities or action names.
+    Unknown tools are rejected.
     """
 
-    arguments = arguments or {}
+    definition = get_tool_definition(
+        tool_name
+    )
 
-    # -----------------------------------------------------
-    # EC2
-    # -----------------------------------------------------
 
-    if tool_name == "check_ec2":
+    if definition is None:
 
-        instance_id = arguments.get(
-            "instance_id",
-            DEFAULT_INSTANCE_ID,
+        return None
+
+
+    arguments = (
+        get_default_arguments(
+            tool_name
+        )
+    )
+
+
+    resource = get_resource(
+        tool_name,
+        arguments,
+    )
+
+
+    return {
+        "tool_name":
+            tool_name,
+
+        "service":
+            definition[
+                "service"
+            ],
+
+        "action":
+            definition[
+                "action"
+            ],
+
+        "capability":
+            definition[
+                "capability"
+            ],
+
+        "resource":
+            resource,
+
+        "arguments":
+            arguments,
+
+        "execution_type":
+            definition[
+                "execution"
+            ],
+
+        "catalog_risk":
+            definition[
+                "risk"
+            ],
+    }
+
+
+# =========================================================
+# NORMALIZE LLM TOOL CALL
+# =========================================================
+
+def normalize_tool_call(
+    proposed_call: Any,
+) -> Optional[Dict[str, Any]]:
+    """
+    Normalize a tool call proposed by the LLM.
+
+    The LLM cannot control:
+        - capability strings
+        - Azure account binding
+        - service/action metadata
+        - real-vs-simulated classification
+
+    It is only allowed to suggest the tool name.
+    """
+
+    if isinstance(
+        proposed_call,
+        str,
+    ):
+
+        tool_name = (
+            proposed_call
+            .strip()
         )
 
-        return {
-            "tool_name": "check_ec2",
-            "service": "EC2",
-            "action": "DescribeInstances",
-            "capability": "ec2:DescribeInstances",
-            "resource": instance_id,
-            "arguments": {
-                "instance_id":
-                    instance_id,
-            },
-        }
 
-    # -----------------------------------------------------
-    # CLOUDWATCH METRICS
-    # -----------------------------------------------------
+    elif isinstance(
+        proposed_call,
+        dict,
+    ):
 
-    if tool_name == "read_cloudwatch":
+        tool_name = str(
+            proposed_call.get(
+                "tool_name",
+                proposed_call.get(
+                    "tool",
+                    proposed_call.get(
+                        "name",
+                        "",
+                    ),
+                ),
+            )
+        ).strip()
 
-        instance_id = arguments.get(
-            "instance_id",
-            DEFAULT_INSTANCE_ID,
+
+    else:
+
+        return None
+
+
+    if not is_supported_tool(
+        tool_name
+    ):
+
+        return None
+
+
+    return (
+        build_tool_request(
+            tool_name
+        )
+    )
+
+
+# =========================================================
+# NORMALIZE COMPLETE PLAN
+# =========================================================
+
+def normalize_tool_plan(
+    proposed_calls: List[Any],
+) -> List[Dict[str, Any]]:
+    """
+    Normalize an entire AI-generated plan.
+
+    Unknown or invented tools are silently discarded.
+    """
+
+    normalized = []
+
+
+    for proposed_call in proposed_calls:
+
+        request = (
+            normalize_tool_call(
+                proposed_call
+            )
         )
 
-        return {
-            "tool_name":
-                "read_cloudwatch",
 
-            "service":
-                "CloudWatch",
+        if request is not None:
 
-            "action":
-                "GetMetricData",
+            normalized.append(
+                request
+            )
 
-            "capability":
-                "cloudwatch:GetMetricData",
 
-            "resource":
-                instance_id,
-
-            "arguments": {
-                "instance_id":
-                    instance_id,
-            },
-        }
-
-    # -----------------------------------------------------
-    # CLOUDWATCH LOGS
-    # -----------------------------------------------------
-
-    if tool_name == "read_application_logs":
-
-        instance_id = arguments.get(
-            "instance_id",
-            DEFAULT_INSTANCE_ID,
-        )
-
-        return {
-            "tool_name":
-                "read_application_logs",
-
-            "service":
-                "CloudWatch",
-
-            "action":
-                "GetLogEvents",
-
-            "capability":
-                "cloudwatch:GetLogEvents",
-
-            "resource":
-                instance_id,
-
-            "arguments": {
-                "instance_id":
-                    instance_id,
-            },
-        }
-
-    # -----------------------------------------------------
-    # IAM
-    # -----------------------------------------------------
-
-    if tool_name == "list_iam_roles":
-
-        return {
-            "tool_name":
-                "list_iam_roles",
-
-            "service":
-                "IAM",
-
-            "action":
-                "ListRoles",
-
-            "capability":
-                "iam:ListRoles",
-
-            "resource":
-                "aws-account",
-
-            "arguments": {},
-        }
-
-    # -----------------------------------------------------
-    # SECRETS MANAGER
-    # -----------------------------------------------------
-
-    if tool_name == "get_secret":
-
-        secret_name = arguments.get(
-            "secret_name",
-            DEFAULT_SECRET,
-        )
-
-        return {
-            "tool_name":
-                "get_secret",
-
-            "service":
-                "SecretsManager",
-
-            "action":
-                "GetSecretValue",
-
-            "capability":
-                "secretsmanager:GetSecretValue",
-
-            "resource":
-                secret_name,
-
-            "arguments": {
-                "secret_name":
-                    secret_name,
-            },
-        }
-
-    # -----------------------------------------------------
-    # S3
-    # -----------------------------------------------------
-
-    if tool_name == "read_s3":
-
-        bucket = arguments.get(
-            "bucket",
-            DEFAULT_BUCKET,
-        )
-
-        object_name = arguments.get(
-            "object_name",
-            DEFAULT_OBJECT,
-        )
-
-        return {
-            "tool_name":
-                "read_s3",
-
-            "service":
-                "S3",
-
-            "action":
-                "GetObject",
-
-            "capability":
-                "s3:GetObject",
-
-            "resource":
-                f"{bucket}/{object_name}",
-
-            "arguments": {
-                "bucket":
-                    bucket,
-
-                "object_name":
-                    object_name,
-            },
-        }
-
-    # -----------------------------------------------------
-    # EXTERNAL DESTINATION
-    # -----------------------------------------------------
-
-    if tool_name == "send_external":
-
-        destination = arguments.get(
-            "destination",
-            DEFAULT_EXTERNAL_DESTINATION,
-        )
-
-        return {
-            "tool_name":
-                "send_external",
-
-            "service":
-                "ExternalAPI",
-
-            "action":
-                "SendData",
-
-            "capability":
-                "external:SendData",
-
-            "resource":
-                destination,
-
-            "arguments": {
-                "destination":
-                    destination,
-            },
-        }
-
-    # -----------------------------------------------------
-    # UNKNOWN TOOL
-    # -----------------------------------------------------
-
-    return None
+    return normalized

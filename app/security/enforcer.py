@@ -32,7 +32,16 @@ from app.security.containment_planner import (
 from app.audit.logger import (
     log_security_event,
 )
+from app.cloud.azure_runtime_executor import (
+    execute_azure_runtime_request,
+)
+from app.security.attack_chain import (
+    analyze_session,
+)
 
+from app.security.containment_planner import (
+    plan_containment,
+)
 # =========================================================
 # CONTROLLED RUNTIME DEVIATIONS
 # =========================================================
@@ -49,6 +58,7 @@ from app.audit.logger import (
 
 MONITORED_DEVIATION_CAPABILITIES = {
     "iam:ListRoles",
+    "azure.rbac:ListRoleAssignments",
 }
 # =========================================================
 # AUDIT WRAPPER
@@ -100,7 +110,36 @@ def execute_tool_request(
         "arguments",
         {},
     )
+    # =====================================================
+    # AZURE RUNTIME EXECUTION
+    # =====================================================
 
+    execution_type = request.get(
+        "execution_type"
+    )
+
+
+    # Defense in depth:
+    # BLOCK_ONLY actions must never reach any executor.
+    if execution_type == "BLOCK_ONLY":
+
+        return None
+
+
+    azure_runtime_tools = {
+        "inspect_azure_storage",
+        "read_azure_monitor",
+        "list_azure_role_assignments",
+    }
+
+
+    if tool_name in azure_runtime_tools:
+
+        return (
+            execute_azure_runtime_request(
+                request
+            )
+        )
     # -----------------------------------------------------
     # EC2
     # -----------------------------------------------------
@@ -185,7 +224,9 @@ def enforce_action(
     allowed_resources: list[str],
     identity_trusted: bool = True,
     task_trusted: bool = True,
+
 ):
+    monitored_deviation = False
     """
     Evaluate a requested cloud action BEFORE execution.
 
@@ -550,7 +591,37 @@ def enforce_action(
         session_id,
         tool_result,
     )
+    # =====================================================
+    # POST-ACTION SECURITY ANALYSIS
+    # =====================================================
 
+    attack_chain = analyze_session(
+        session_id
+    )
+
+
+    risk = evaluate_session_risk(
+    session_id=session_id,
+    allowed_services=allowed_services,
+    allowed_resources=allowed_resources,
+)
+
+
+    containment_after = plan_containment(
+        session_id=session_id,
+
+        allowed_services=
+            allowed_services,
+
+        allowed_resources=
+            allowed_resources,
+
+        identity_trusted=
+            identity_trusted,
+
+        task_trusted=
+            task_trusted,
+    )
     # =====================================================
     # STEP 8 — ATTACK-CHAIN ANALYSIS
     # =====================================================
@@ -608,7 +679,10 @@ def enforce_action(
             True,
 
         "reason":
-            "Requested capability passed NEXUS enforcement.",
+            (
+                "Requested capability passed "
+                "NEXUS enforcement."
+            ),
 
         "request":
             request,
@@ -616,24 +690,61 @@ def enforce_action(
         "tool_result":
             tool_result,
 
-        "observer":
-            observer_result,
+        "backend":
+            (
+                tool_result.get(
+                    "backend",
+                    "SIMULATION",
+                )
 
-        "attack_analysis":
-            attack_analysis[
-                "most_advanced_chain"
-            ],
+                if isinstance(
+                    tool_result,
+                    dict,
+                )
+
+                else "SIMULATION"
+            ),
+
+        # ---------------------------------------------
+        # Runtime security evidence
+        # ---------------------------------------------
+
+        "attack_chain":
+            attack_chain,
 
         "risk":
-            risk_analysis,
+            risk,
 
-        "containment_before":
-            containment_before,
-
-        "containment_after":
+        "containment":
             containment_after,
+
+        # This shows the NEXT capability NEXUS has
+        # selectively restricted after observing the
+        # current action.
+        "blocked_capability":
+            (
+                containment_after.get(
+                    "blocked_capability"
+                )
+
+                if isinstance(
+                    containment_after,
+                    dict,
+                )
+
+                else None
+            ),
+
+        "monitored_deviation":
+            monitored_deviation,
     }
 
+
+    return finalize_enforcement_result(
+        session_id,
+        request,
+        result,
+    )
     # =====================================================
     # STEP 12 — WRITE AUDIT LOG + RETURN
     # =====================================================

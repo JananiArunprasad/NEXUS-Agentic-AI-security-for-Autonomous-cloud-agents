@@ -112,8 +112,12 @@ from app.evaluation.evaluator import (
     read_latest_evaluation,
 )
 
-from app.cloud.aws_backend import (
-    get_aws_status,
+# =========================================================
+# AZURE CLOUD INTEGRATION
+# =========================================================
+
+from app.cloud.azure_backend import (
+    get_azure_status,
 )
 # =========================================================
 # FASTAPI APPLICATION
@@ -164,7 +168,8 @@ def root():
 
         "version": "1.0.0",
 
-        "execution_mode": "SIMULATION",
+        "execution_mode": "AZURE_HYBRID",
+        "cloud_provider": "AZURE",
 
         "dashboard": "/dashboard",
     }
@@ -1050,15 +1055,16 @@ def get_nexus_dashboard():
         dashboard_file
     )
 # =========================================================
-# AWS CONNECTIVITY
+# AZURE CONNECTIVITY
 # =========================================================
 
-@app.get("/aws/status")
-def get_nexus_aws_status():
+@app.get("/azure/status")
+def get_nexus_azure_status():
     """
-    Return the current NEXUS AWS connection state.
+    Return the current NEXUS Azure connection state.
 
-    No cloud-agent action is executed here.
+    This endpoint reports cloud connectivity only.
+    It does not execute an autonomous agent task.
     """
 
-    return get_aws_status()
+    return get_azure_status()
