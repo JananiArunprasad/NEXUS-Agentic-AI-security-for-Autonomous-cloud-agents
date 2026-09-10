@@ -1,12 +1,12 @@
 # NEXUS — Adaptive Attack-Chain Defense for Autonomous Cloud Agents
 
+## 🚀 Live Demo
+
+**[Open the NEXUS Security Dashboard](https://nexus-agentic-ai-security-for-autonomous.onrender.com)**
+
+> Public recruiter demo uses safe simulated cloud responses. Real Azure Storage and Azure Monitor management API integration was validated separately in the local NEXUS runtime.
+
 NEXUS is a runtime cloud-security system for autonomous AI agents.
-
-Instead of treating every suspicious action as an isolated event, NEXUS observes agent behavior across a session, reconstructs progression through a modeled attack chain, evaluates runtime risk, and selectively restricts the next attack-enabling capability while preserving legitimate task permissions whenever agent trust remains intact.
-
-> **Core principle:** Stop the attack path with minimum disruption when the agent remains trustworthy; quarantine the agent when trust itself is lost.
-
----
 
 ## Why NEXUS?
 
