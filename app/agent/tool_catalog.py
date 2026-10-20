@@ -173,6 +173,31 @@ TOOL_CATALOG = {
             "HIGH",
     },
 
+    "delete_blob": {
+        "description": "Delete data from Azure Blob Storage (blocked in public demo).",
+        "service": "AzureBlobStorage",
+        "action": "DeleteBlob",
+        "capability": "azure.blob:DeleteBlob",
+        "execution": "BLOCK_ONLY",
+        "risk": "HIGH",
+    },
+    "delete_storage_account": {
+        "description": "Delete an Azure Storage account (blocked in public demo).",
+        "service": "AzureStorage",
+        "action": "DeleteStorageAccount",
+        "capability": "azure.storage:DeleteStorageAccount",
+        "execution": "BLOCK_ONLY",
+        "risk": "CRITICAL",
+    },
+    "delete_database": {
+        "description": "Delete a cloud database (blocked in public demo).",
+        "service": "AzureDatabase",
+        "action": "DeleteDatabase",
+        "capability": "azure.database:DeleteDatabase",
+        "execution": "BLOCK_ONLY",
+        "risk": "CRITICAL",
+    },
+
     "send_external": {
         "description":
             "Attempt to send collected information "
