@@ -82,3 +82,12 @@ def test_unrecognized_model_tool_cannot_execute():
             with patch.object(public_planner.json, "load", return_value=response):
                 actions, _ = public_planner._propose("Delete a resource")
         assert actions[0]["tool_name"] == "review_cloud_operation"
+
+def test_incomplete_deletion_preserves_inspection():
+    with patch.object(public_planner, "_propose", return_value=([], "")):
+        data = client.post("/agent/execute", json={"task": "Inspect my Azure storage account and delete"}).json()
+    assert data["task_status"] == "NEEDS_CLARIFICATION"
+    assert [step["decision"] for step in data["timeline"]] == ["ALLOW", "HOLD"]
+    assert data["summary"]["simulated_actions"] == 1
+    assert data["summary"]["real_azure_actions"] == 0
+    assert "What exactly" in data["reply"]
