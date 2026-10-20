@@ -104,8 +104,8 @@ def _recover_partial_task(task, actions, reply):
     if actions:
         return actions, reply
     normalized = task.casefold()
-    inspect_storage = bool(re.search(r"\\b(inspect|check|examine|view)\\b", normalized) and re.search(r"\\bstor(age|age account)\\b", normalized))
-    unfinished_delete = bool(re.search(r"\\b(delete|remove|erase|wipe)\\s*$", normalized))
+    inspect_storage = bool(re.search(r"\b(inspect|check|examine|view)\b", normalized) and re.search(r"\bstor(age|age account)\b", normalized))
+    unfinished_delete = bool(re.search(r"\b(delete|remove|erase|wipe)\s*$", normalized))
     if inspect_storage and unfinished_delete:
         return [
             {"tool_name": "inspect_azure_storage", "description": "Inspect Azure storage account"},
