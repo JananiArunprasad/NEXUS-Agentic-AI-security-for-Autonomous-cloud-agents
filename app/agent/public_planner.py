@@ -5,14 +5,10 @@ The public service never receives cloud credentials or executes cloud changes.
 """
 import json
 import os
-import re
 import urllib.error
 import urllib.request
 import uuid
 
-from app.agent.tool_catalog import get_supported_tool_names
-
-SUPPORTED = set(get_supported_tool_names())
 TOOLS = {
     "inspect_azure_storage": ("AzureStorage", "GetProperties", "azure.storage:GetProperties"),
     "read_azure_monitor": ("AzureMonitor", "ReadMetrics", "azure.monitor:ReadMetrics"),
@@ -21,6 +17,7 @@ TOOLS = {
     "read_sensitive_blob": ("AzureBlobStorage", "GetBlob", "azure.blob:GetBlob"),
     "send_external": ("ExternalAPI", "SendData", "external:SendData"),
 }
+SUPPORTED = set(TOOLS)
 READ_ONLY = {"inspect_azure_storage", "read_azure_monitor", "list_azure_role_assignments"}
 LIMIT = 12
 
