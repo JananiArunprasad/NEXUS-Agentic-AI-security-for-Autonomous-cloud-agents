@@ -63,3 +63,22 @@ def test_negative_instruction_is_not_treated_as_execution():
         data = client.post("/agent/execute", json={"task": "Inspect storage and do not send it externally"}).json()
     assert [step["tool_name"] for step in data["timeline"]] == ["inspect_azure_storage"]
     assert data["task_status"] == "COMPLETED"
+
+def test_arbitrary_cloud_operation_is_reviewed_not_executed():
+    actions = [{"tool_name": "review_cloud_operation", "description": "Rotate production signing keys"}]
+    with patch.object(public_planner, "_propose", return_value=(actions, "")):
+        data = client.post("/agent/execute", json={"task": "Rotate the production signing keys"}).json()
+    assert data["timeline"][0]["decision"] == "BLOCK"
+    assert data["timeline"][0]["executed"] is False
+    assert data["summary"]["real_azure_actions"] == 0
+
+def test_unrecognized_model_tool_cannot_execute():
+    with patch.dict("os.environ", {"NEXUS_MODEL_URL": "https://example.test/chat", "NEXUS_MODEL_NAME": "test", "NEXUS_MODEL_KEY": "test"}):
+        response = {"choices": [{"message": {"content": '{"actions":[{"tool_name":"delete_unlisted_resource","description":"Delete resource"}],"reply":""}'}}]}
+        from unittest.mock import MagicMock
+        cm = MagicMock()
+        cm.__enter__.return_value = MagicMock()
+        with patch.object(public_planner.urllib.request, "urlopen", return_value=cm):
+            with patch.object(public_planner.json, "load", return_value=response):
+                actions, _ = public_planner._propose("Delete a resource")
+        assert actions[0]["tool_name"] == "review_cloud_operation"
