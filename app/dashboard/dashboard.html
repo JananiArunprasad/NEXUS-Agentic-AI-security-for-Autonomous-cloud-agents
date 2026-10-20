@@ -3280,9 +3280,9 @@
 
 
         const f1 =
-            Number(
-                metrics.f1_score
-            );
+            metrics.f1_score == null
+            ? NaN
+            : Number(metrics.f1_score);
 
 
         document.getElementById(
@@ -3302,7 +3302,7 @@
         ).textContent =
             percentage(
                 metrics
-                .legitimate_recovery_success_rate
+                .legitimate_recovery_success_rate ?? metrics.recovery_success_rate
             );
 
 
@@ -4371,6 +4371,7 @@
 
         const taskStatus =
             data?.task_status
+            || data?.final_decision
             || "UNKNOWN";
 
 
@@ -4444,11 +4445,8 @@
 
 
                     const event =
-                        (
-                            request.service
-                            + ":"
-                            + request.action
-                        );
+                        request.description
+                        || (request.service + ":" + request.action);
 
 
                     return `
@@ -4633,7 +4631,10 @@
         }
 
         else if (
-            taskStatus
+            taskStatus === "BLOCK"
+            || taskStatus === "PARTIAL"
+            || taskStatus === "UNSUPPORTED"
+            || taskStatus
             === "SECURITY_INTERVENTION"
         ) {
 
@@ -4705,7 +4706,8 @@
 
             ${intervention}
 
-
+            ${data.reply ? `<div class="empty">${escapeHTML(data.reply)}</div>` : ""}
+            ${data.demo_notice ? `<div class="panel-subtitle">${escapeHTML(data.demo_notice)}</div>` : ""}
 
             <div class="agent-summary">
 

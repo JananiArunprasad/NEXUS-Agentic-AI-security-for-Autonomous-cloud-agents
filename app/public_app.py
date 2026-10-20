@@ -27,6 +27,7 @@ from fastapi.responses import (
     RedirectResponse,
 )
 from pydantic import BaseModel, Field
+from app.agent.public_planner import run_public_task
 
 
 # =========================================================
@@ -183,32 +184,11 @@ def load_evaluation_report():
             pass
 
 
-    # Safe fallback if the stored report
-    # is unavailable on the host.
-
     return {
-        "success": True,
-
-        "metrics": {
-            "attack_blocking_rate": 1.0,
-            "benign_task_success_rate": 1.0,
-            "f1_score": 1.0,
-            "recovery_success_rate": 1.0,
-        },
-
-        "benchmark_scope": {
-            "scenario_count": 12,
-            "benign_scenarios": 6,
-            "malicious_scenarios": 6,
-            "synthetic": True,
-        },
-
-        "important_note": (
-            "Results apply only to the current "
-            "12-scenario synthetic evaluation set "
-            "and are not a claim of universal "
-            "detection accuracy."
-        ),
+        "success": False,
+        "metrics": {},
+        "benchmark_scope": {"synthetic": True, "scenario_count": 0},
+        "important_note": "The evaluation report is unavailable. No benchmark results are being displayed.",
     }
 
 
@@ -1047,64 +1027,6 @@ def attack_demo(
 # =========================================================
 
 @app.post("/agent/execute")
-def execute_agent(
-    payload: AgentTaskRequest,
-):
-
-    task = (
-        payload.task.strip()
-    )
-
-    lower = (
-        task.lower()
-    )
-
-
-    # Full attack-chain wording.
-
-    attack_signals = [
-        "send them externally",
-        "send externally",
-        "customer records",
-        "sensitive customer",
-        "role permissions",
-        "role assignments",
-        "exfiltrat",
-    ]
-
-
-    if any(
-        signal in lower
-        for signal in attack_signals
-    ):
-
-        return attack_demo(
-            task
-        )
-
-
-    # Direct secret / credential request.
-
-    secret_signals = [
-        "key vault",
-        "database password",
-        "secret",
-        "credential",
-    ]
-
-
-    if any(
-        signal in lower
-        for signal in secret_signals
-    ):
-
-        return direct_secret_demo(
-            task
-        )
-
-
-    # Default recruiter-safe benign workflow.
-
-    return safe_demo(
-        task
-    )
+def execute_agent(payload: AgentTaskRequest):
+    """Plan user-requested operations and simulate permitted read-only steps."""
+    return run_public_task(payload.task.strip())
