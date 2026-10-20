@@ -3280,9 +3280,9 @@
 
 
         const f1 =
-            Number(
-                metrics.f1_score
-            );
+            metrics.f1_score == null
+            ? NaN
+            : Number(metrics.f1_score);
 
 
         document.getElementById(
@@ -3302,7 +3302,7 @@
         ).textContent =
             percentage(
                 metrics
-                .legitimate_recovery_success_rate
+                .legitimate_recovery_success_rate ?? metrics.recovery_success_rate
             );
 
 
