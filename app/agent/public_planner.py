@@ -5,6 +5,7 @@ The public service never receives cloud credentials or executes cloud changes.
 """
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 import uuid
@@ -20,6 +21,7 @@ TOOLS = {
     "delete_storage_account": ("AzureStorage", "DeleteStorageAccount", "azure.storage:DeleteStorageAccount"),
     "delete_database": ("AzureDatabase", "DeleteDatabase", "azure.database:DeleteDatabase"),
     "review_cloud_operation": ("CloudOperation", "Review", "cloud:ReviewRestrictedOperation"),
+    "clarify_target": ("CloudOperation", "Clarify", "cloud:ClarifyTarget"),
 }
 SUPPORTED = set(TOOLS)
 READ_ONLY = {"inspect_azure_storage", "read_azure_monitor", "list_azure_role_assignments"}
@@ -97,16 +99,35 @@ def _propose(task):
         reply = ""
     return clean, reply[:600]
 
+def _recover_partial_task(task, actions, reply):
+    """Recover explicit read-only intent when a model drops an incomplete second action."""
+    if actions:
+        return actions, reply
+    normalized = task.casefold()
+    inspect_storage = bool(re.search(r"\\b(inspect|check|examine|view)\\b", normalized) and re.search(r"\\bstor(age|age account)\\b", normalized))
+    unfinished_delete = bool(re.search(r"\\b(delete|remove|erase|wipe)\\s*$", normalized))
+    if inspect_storage and unfinished_delete:
+        return [
+            {"tool_name": "inspect_azure_storage", "description": "Inspect Azure storage account"},
+            {"tool_name": "clarify_target", "description": "Clarify what should be deleted"},
+        ], "What exactly should be deleted: a blob, a database, or the storage account? No deletion was performed."
+    return actions, reply
+
+
 def run_public_task(task):
     try:
         actions, reply = _propose(task)
     except PlanningUnavailable as exc:
         return {"success": False, "error": str(exc), "task_status": "UNAVAILABLE"}
+    actions, reply = _recover_partial_task(task, actions, reply)
     session_id = "demo-" + uuid.uuid4().hex[:8]
     calls, timeline = [], []
     for action in actions:
         name = action["tool_name"]
-        if name == "unsupported":
+        if name == "clarify_target":
+            service, operation, capability = TOOLS[name]
+            decision, reason = "HOLD", "A target must be specified before this operation can be evaluated."
+        elif name == "unsupported":
             service, operation, capability = "Unsupported", "Unavailable", "unsupported:operation"
             decision, reason = "UNSUPPORTED", "This operation is not available in the public simulation."
         else:
@@ -131,10 +152,11 @@ def run_public_task(task):
                 "message": "Read-only operation simulated. No live cloud resource was accessed."
             } if allowed else None,
         })
+    held = sum(item["decision"] == "HOLD" for item in timeline)
     blocked = sum(item["decision"] == "BLOCK" for item in timeline)
     unsupported = sum(item["decision"] == "UNSUPPORTED" for item in timeline)
     executed = sum(item["executed"] for item in timeline)
-    status = "NEEDS_CLARIFICATION" if not calls else (
+    status = "NEEDS_CLARIFICATION" if (not calls or held) else (
         "PARTIAL" if executed and (blocked or unsupported) else
         "BLOCK" if blocked else "UNSUPPORTED" if unsupported else "COMPLETED"
     )
@@ -149,7 +171,7 @@ def run_public_task(task):
                  "accepted_count": len(calls)},
         "timeline": timeline,
         "summary": {"planned_actions": len(calls), "executed_actions": executed,
-                    "blocked_actions": blocked, "unsupported_actions": unsupported,
+                    "blocked_actions": blocked, "held_actions": held, "unsupported_actions": unsupported,
                     "real_azure_actions": 0, "simulated_actions": executed},
         "demo_notice": "All approved activity is simulated. No live cloud changes are made.",
     }
