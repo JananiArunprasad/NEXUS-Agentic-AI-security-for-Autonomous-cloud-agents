@@ -19,6 +19,7 @@ TOOLS = {
     "delete_blob": ("AzureBlobStorage", "DeleteBlob", "azure.blob:DeleteBlob"),
     "delete_storage_account": ("AzureStorage", "DeleteStorageAccount", "azure.storage:DeleteStorageAccount"),
     "delete_database": ("AzureDatabase", "DeleteDatabase", "azure.database:DeleteDatabase"),
+    "review_cloud_operation": ("CloudOperation", "Review", "cloud:ReviewRestrictedOperation"),
 }
 SUPPORTED = set(TOOLS)
 READ_ONLY = {"inspect_azure_storage", "read_azure_monitor", "list_azure_role_assignments"}
@@ -45,10 +46,11 @@ def _propose(task):
         "delete_database for deleting a database. These are proposals only and will be blocked. "
         "Preserve negation and explicit constraints: 'do not send externally' is a prohibition, "
         "not a send_external action. Never turn a prohibited action into an affirmative tool call. "
-        "Do not add unrelated read operations. If the deletion target is ambiguous, "
-        "use an unsupported action requesting clarification rather than guessing. "
-        "For operations without a matching tool, include an entry with tool_name 'unsupported' "
-        "and a short plain-language description of the requested operation. "
+        "Do not add unrelated read operations. If a target is ambiguous, propose a generic restricted "
+        "cloud action with a description of the ambiguity; do not pretend a target was selected. "
+        "For cloud operations without a matching dedicated tool, use tool_name 'review_cloud_operation' "
+        "and a short plain-language description. Those requests are reviewed and blocked, not executed. "
+        "Use 'unsupported' only for tasks that have no cloud operation or meaningful interpretation. "
         "Do not silently omit a requested action. For questions, greetings, or unclear instructions "
         "return an empty actions list and a short helpful reply or clarifying question. "
         "Return a JSON object with 'actions' (list of objects containing 'tool_name' and 'description') "
@@ -85,7 +87,7 @@ def _propose(task):
             raise PlanningUnavailable("The planning service returned an invalid action.")
         tool = item.get("tool_name")
         if tool not in SUPPORTED and tool != "unsupported":
-            raise PlanningUnavailable("The planning service proposed an unknown operation.")
+            tool = "review_cloud_operation"
         description = item.get("description", "")
         if not isinstance(description, str) or not description.strip():
             description = tool.replace("_", " ")
@@ -112,7 +114,7 @@ def run_public_task(task):
             if name in READ_ONLY:
                 decision, reason = "ALLOW", "Read-only operation permitted in the isolated simulation."
             else:
-                decision, reason = "BLOCK", "Sensitive or destructive operation is blocked by the public demo policy; nothing was changed."
+                decision, reason = "BLOCK", "Operation recognized and reviewed. It is not authorized in the public simulation; nothing was changed."
         call = {
             "tool_name": name, "description": action["description"],
             "service": service, "action": operation, "capability": capability,
